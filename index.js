@@ -30,17 +30,18 @@ client.once("ready", () => {
 client.login(config.token);
 
 function checkForEmpty() {
-    dbSession.sql("SELECT COUNT(*) FROM LDQueue").execute(row => {
+    return dbSession.sql("SELECT COUNT(*) FROM LDQueue").execute(row => {
+        logger.debug(row[0]);
         if (row[0] > 0) {
-            return false;
+            return 0;
         } else {
-            return true;
+            return 1;
         }
     });
 }
 
 function getMin() {
-    dbSession.sql("SELECT MIN(QueuePosition) FROM LDQueue").execute(row => {
+    return dbSession.sql("SELECT MIN(QueuePosition) FROM LDQueue").execute(row => {
         return row[0];
     });
 }
@@ -48,12 +49,15 @@ function getMin() {
 client.on("message", message => {
     if (message.content.startsWith(`${config.prefix}add`)) {
         var link = message.content.slice(5);
-        dbSession.sql(`INSERT INTO LDQueue(QueueLink) VALUES(${link})`).execute();
+        dbSession.sql(`INSERT INTO LDQueue(QueueLink) VALUES("${link}")`).execute();
     }
     if (message.content.startsWith(`${config.prefix}next`)) {
-        if (message.member.roles.exists("name", "LDer")) {
-            var empty = checkForEmpty();
-            if (empty == false) {
+        if (message.member.roles.cache.some(role => role.name === "LDer")) {
+            var empty;
+            empty = checkForEmpty();
+            logger.debug(empty);
+            logger.debug(checkForEmpty());
+            if (empty > 0) {
                 var min = getMin();
                 dbSession.sql(`SELECT QueueLink FROM LDQueue WHERE QueuePosition=${min}`).execute(row => {
                     message.reply(`the next game is at ${row[0]}.`);
@@ -67,9 +71,9 @@ client.on("message", message => {
         }
     }
     if (message.content.startsWith(`${config.prefix}delete`)) {
-        if (message.member.roles.exists("name", "LDer")) {
+        if (message.member.roles.cache.some(role => role.name === "LDer")) {
             var empty = checkForEmpty();
-            if(empty == false) {
+            if(empty === false) {
                 var min = getMin();
                 dbSession.sql(`DELETE FROM LDQueue WHERE QueuePosition=${min}`).execute();
             }
